@@ -1,15 +1,36 @@
 package sim
 
 import (
+	"errors"
 	"log"
 	"time"
 
 	"github.com/marlinprotocol/p2psim/core"
 	"github.com/marlinprotocol/p2psim/floodsub"
+	"github.com/marlinprotocol/p2psim/gossipsub"
 	"github.com/marlinprotocol/p2psim/pubsub"
 	"go.uber.org/zap"
 	exprand "golang.org/x/exp/rand"
 	"gonum.org/v1/gonum/graph"
+)
+
+var (
+	UnknownRouterErr  = errors.New("Could not recognize the requested router type!")
+	UnspecDurErr      = errors.New("Did not configure a run duration!")
+	UnspecNumPeerErr  = errors.New("Did not configure the total number of peers!")
+	UnspecBlockDurErr = errors.New("Did not configure the block interval!")
+	UnspecRouterErr   = errors.New("Did not configure the router type!")
+)
+
+const (
+	FloodSub  = "floodsub"
+	GossipSub = "gossipsub"
+)
+
+var (
+	// Default config params
+	Seed    = uint64(42)
+	SeenTTL = 2 * time.Minute
 )
 
 // TODO: documentation
@@ -28,14 +49,20 @@ type Config struct {
 
 	// Expected time to generate the next block
 	BlockInterval *time.Duration `toml:"block_interval"`
+
+	// The type of router to consider
+	Router *string `toml:"router"`
+
+	// Configuration options for the gossip router
+	// Options enabled iff the router is specified as `gossipsub`
+	GossipSub *gossipsub.Config `toml:"gossipsub,omitempty"`
 }
 
 func GetDefaultConfig() *Config {
-	seed := uint64(42)
-	seenTTL := 2 * time.Minute
 	return &Config{
-		Seed:    &seed,
-		SeenTTL: &seenTTL,
+		Seed:      &Seed,
+		SeenTTL:   &SeenTTL,
+		GossipSub: gossipsub.GetDefaultConfig(),
 	}
 }
 
@@ -48,6 +75,9 @@ func Simulate(cfg *Config, logger *zap.Logger) (*core.Stats, error) {
 	rng := exprand.NewSource(42)
 
 	// triggers events in chronological order
+	if cfg.RunDuration == nil {
+		return nil, UnspecDurErr
+	}
 	log.Printf("Starting a simulator to be run for %v\n", *cfg.RunDuration)
 	sched, err := core.NewScheduler(*cfg.RunDuration)
 	if err != nil {
@@ -55,6 +85,9 @@ func Simulate(cfg *Config, logger *zap.Logger) (*core.Stats, error) {
 	}
 
 	// construct the static network topology
+	if cfg.TotalPeers == nil {
+		return nil, UnspecNumPeerErr
+	}
 	topology, err := core.NewGraph(*cfg.TotalPeers, rng)
 	if err != nil {
 		return nil, err
@@ -66,6 +99,9 @@ func Simulate(cfg *Config, logger *zap.Logger) (*core.Stats, error) {
 		return nil, err
 	}
 
+	if cfg.BlockInterval == nil {
+		return nil, UnspecBlockDurErr
+	}
 	oracle, err := core.NewBlockGenerator(sched, *cfg.BlockInterval, rng, logger)
 	if err != nil {
 		return nil, err
@@ -73,7 +109,7 @@ func Simulate(cfg *Config, logger *zap.Logger) (*core.Stats, error) {
 
 	// spawn and connect the nodes to their neighbors
 	log.Printf("Spawning %v new nodes in the network\n", *cfg.TotalPeers)
-	err = spawnNewNodes(sched, topology, net, oracle, *cfg.SeenTTL, rng, logger)
+	err = spawnNewNodes(sched, topology, net, oracle, cfg, rng, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +124,7 @@ func spawnNewNodes(
 	topology graph.Undirected,
 	net *pubsub.Network,
 	oracle *core.OracleBlockGenerator,
-	seenTTL time.Duration,
+	cfg *Config,
 	rng exprand.Source,
 	logger *zap.Logger,
 ) error {
@@ -96,7 +132,7 @@ func spawnNewNodes(
 	nodeIt := topology.Nodes()
 	for nodeIt.Next() {
 		nodeID := nodeIt.Node().ID()
-		pubSubNode, err := floodsub.SpawnNewNode(sched, net, oracle, seenTTL, nodeID, rng, logger)
+		pubSubNode, err := spawnNewNode(sched, net, oracle, cfg, nodeID, rng, logger)
 		if err != nil {
 			return err
 		}
@@ -114,5 +150,37 @@ func spawnNewNodes(
 		}
 	}
 
+	// start the nodes
+	for _, pubSubNode := range pubSubNodes {
+		err := pubSubNode.Start(logger)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
+}
+
+func spawnNewNode(
+	sched *core.Scheduler,
+	net *pubsub.Network,
+	oracle *core.OracleBlockGenerator,
+	cfg *Config,
+	nodeID int64,
+	rng exprand.Source,
+	logger *zap.Logger,
+) (*pubsub.Node, error) {
+	if cfg.Router == nil {
+		return nil, UnspecRouterErr
+	}
+	switch *cfg.Router {
+	case FloodSub:
+		router := floodsub.NewRouter()
+		return pubsub.SpawnNewNode(sched, net, oracle, *cfg.SeenTTL, router, nodeID, rng, logger)
+	case GossipSub:
+		router := gossipsub.NewRouter(cfg.GossipSub, rng)
+		return pubsub.SpawnNewNode(sched, net, oracle, *cfg.SeenTTL, router, nodeID, rng, logger)
+	default:
+		return nil, UnknownRouterErr
+	}
 }

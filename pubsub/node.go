@@ -24,18 +24,17 @@ const (
 //   `HandleBlockGen` is triggered in intervals taken from a probability distribution (currently exponential)
 //   nodes are expected to send the message using the appropriate protocol
 type Node struct {
-	sched     *core.Scheduler
-	router    Router
-	neighbors *core.Set // set of PeerID
-	seenCache *SeenCache
-	localID   int64
-	link      *MuxLink
-	nextSeqno int64
+	Sched       *core.Scheduler
+	router      Router
+	NeighborIDs *core.Set // set of PeerID
+	SeenMsgs    *SeenCache
+	localID     int64
+	link        *MuxLink
+	nextSeqno   int64
 }
 
 type Router interface {
-	Attach(pubSubNode *Node)
-	AddPeer(peerID int64)
+	Start(node *Node, logger *zap.Logger) error
 	PublishMsg(srcID int64, msg Message)
 	HandleRPC(srcID int64, rpcMsg RPC)
 }
@@ -56,13 +55,13 @@ func SpawnNewNode(
 	logger *zap.Logger,
 ) (*Node, error) {
 	node := &Node{
-		sched:     sched,
-		router:    router,
-		neighbors: core.NewSet(),
-		seenCache: NewSeenCache(seenTTL),
-		localID:   localID,
-		link:      nil,
-		nextSeqno: 0,
+		Sched:       sched,
+		router:      router,
+		NeighborIDs: core.NewSet(),
+		SeenMsgs:    NewSeenCache(seenTTL),
+		localID:     localID,
+		link:        nil,
+		nextSeqno:   0,
 	}
 
 	// Register ourselves as miner/block publisher
@@ -70,9 +69,6 @@ func SpawnNewNode(
 
 	// Add the local node to the network
 	node.link = net.AddNode(localID, node)
-
-	// router needs the node to send messages
-	router.Attach(node)
 
 	return node, nil
 }
@@ -83,7 +79,7 @@ func (node *Node) HandleRPC(srcID int64, rpcMsg RPC) {
 			From:  msg.From(),
 			Seqno: msg.Seqno(),
 		}
-		if node.seenCache.MarkSeen(msgID, node.sched.CurTime) {
+		if node.SeenMsgs.MarkSeen(msgID, node.Sched.CurTime) {
 			node.router.PublishMsg(srcID, msg)
 		}
 	}
@@ -105,15 +101,11 @@ func (node *Node) PublishNewBlock() {
 }
 
 func (node *Node) AddPeer(remoteID int64) {
-	node.neighbors.Add(remoteID)
+	node.NeighborIDs.Add(remoteID)
 }
 
-func (node *Node) GetNeighbors() []int64 {
-	neighbors := []int64{}
-	for _, peerID := range node.neighbors.Flatten() {
-		neighbors = append(neighbors, peerID.(int64))
-	}
-	return neighbors
+func (node *Node) Start(logger *zap.Logger) error {
+	return node.router.Start(node, logger)
 }
 
 func (node *Node) ID() int64 {

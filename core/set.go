@@ -48,3 +48,9 @@ func (set *Set) Flatten() []interface{} {
 	}
 	return elems
 }
+
+func (set *Set) Traverse(visitor func(elem interface{})) {
+	for elem := range set.elems {
+		visitor(elem)
+	}
+}

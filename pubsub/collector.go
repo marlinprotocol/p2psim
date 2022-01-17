@@ -236,11 +236,12 @@ func (collector *StatCollector) retireOldMsgs(curTime time.Time) {
 
 func (collector *StatCollector) excludeSource(srcID int64) *core.Set {
 	nodeSet := core.NewSet()
-	for _, nodeID := range collector.nodeIDs.Flatten() {
+	collector.nodeIDs.Traverse(func(iNodeID interface{}) {
+		nodeID := iNodeID.(int64)
 		if nodeID != srcID {
 			nodeSet.Add(nodeID)
 		}
-	}
+	})
 	return nodeSet
 }
 

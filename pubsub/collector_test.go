@@ -25,6 +25,10 @@ func (rpcMsg *CollectorRPC) GetMessages() []Message {
 	return []Message{rpcMsg.msg}
 }
 
+func (msg *CollectorMsg) GetSize() int64 {
+	return 0
+}
+
 func (msg *CollectorMsg) From() int64 {
 	return msg.from
 }

@@ -11,6 +11,7 @@ type RPC interface {
 // Message ID function is a struct combination of from and seqno
 // NOTE: Seqno corresponds to the originator of the message and not the forwarder
 type Message interface {
+	GetSize() int64
 	From() int64
 	Seqno() int64
 }
