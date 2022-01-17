@@ -1,0 +1,4 @@
+run_duration = "10m"
+total_peers = 1024
+seen_ttl = "5m"
+block_interval = "15s"
