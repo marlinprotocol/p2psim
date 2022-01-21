@@ -46,11 +46,17 @@ var (
 		Aliases: []string{"c"},
 		Usage:   "Load TOML based configuration from `FILE`",
 	}
+
+	devFlag = &cli.BoolFlag{
+		Name:  "dev",
+		Usage: "Log events in json format!",
+	}
 )
 
 func main() {
 	flags := []cli.Flag{
 		configFileFlag,
+		devFlag,
 	}
 	app := cli.App{
 		Name:    "p2psim",
@@ -79,10 +85,14 @@ func p2psim(ctx *cli.Context) error {
 	}
 
 	// Initialize the global logger
-	// logger, err = zap.NewProductionConfig()
-	loggerCfg := zap.NewDevelopmentConfig()
-	loggerCfg.OutputPaths = []string{
-		"build/events.log",
+	var loggerCfg zap.Config
+	if ctx.Bool(devFlag.Name) {
+		loggerCfg = zap.NewDevelopmentConfig()
+		loggerCfg.OutputPaths = []string{
+			"build/events.log",
+		}
+	} else {
+		loggerCfg = zap.NewProductionConfig()
 	}
 	logger, err := loggerCfg.Build()
 	if err != nil {
@@ -125,7 +135,7 @@ func loadConfig(ctx *cli.Context) (*sim.Config, error) {
 	// Decode toml config
 	// the configuration schema is specified by sim.Config
 	// below code disallows specification of extraneous config options
-	cfg := &sim.Config{}
+	cfg := sim.GetDefaultConfig()
 	if err = toml.NewDecoder(bufio.NewReader(file)).Strict(true).Decode(cfg); err != nil {
 		return nil, err
 	}

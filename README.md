@@ -1,5 +1,8 @@
 # p2psim
 
+![CI Status](https://github.com/marlinprotocol/p2psim/actions/workflows/ci.yml/badge.svg)
+[![stability-experimental](https://img.shields.io/badge/stability-experimental-orange.svg)](https://github.com/emersion/stability-badges#experimental)
+
 *This is a work in progress.*
 
 Simulate custom p2p overlay network protocols for comparing performance across various designs. The simulation is determinsitic, configurable and runs to completion quicker than if the events were run in real-time.
@@ -40,14 +43,23 @@ Supported config formats: TOML
 
 ## Configuration Schema
 
-| Path            | Description                                                   | Type     | Example          | Default  | Additional Constraints |
-|-----------------|---------------------------------------------------------------|----------|------------------|----------|------------------------|
-| run\_duration   | Duration for which the simulation is run                      | duration | "1h"<br>(1 hour) | Required | Must be positive       |
-| total\_peers    | Total number of nodes simulated in the network                | integer  | 1024             | Required | Must be at least 2     |
-| seen\_ttl       | Duration for which the pubsub framework retains past messages | duration | "5m"<br>(5 mins) | "2m"     | Must be positive       |
-| block\_interval | Expected time to generate the next block                      | duration | "15s"            | Required | Must be positive       |
+| Path                          | Description                                                   | Type     | Example          | Default  | Additional Constraints                  |
+|-------------------------------|---------------------------------------------------------------|----------|------------------|----------|-----------------------------------------|
+| run\_duration                 | Duration for which the simulation is run                      | duration | "1h"<br>(1 hour) | Required | Must be positive                        |
+| total\_peers                  | Total number of nodes simulated in the network                | integer  | 1024             | Required | Must be at least 2                      |
+| seen\_ttl                     | Duration for which the pubsub framework retains past messages | duration | "5m"<br>(5 mins) | "2m"     | Must be positive                        |
+| block\_interval               | Expected time to generate the next block                      | duration | "15s"            | Required | Must be positive                        |
+| gossipsub.heartbeat\_interval | Interval between consecutive gossips                          | duration | "1m"             | "1s"     | Must be positive                        |
+| gossipsub.D                   | Desired degree for the mesh                                   | integer  |                  | 6        | Must be positive                        |
+| gossipsub.Dlow                | Lower bound for the degree of a node                          | integer  |                  | 4        | Must be positive and<br>not more than D |
+| gossipsub.Dhigh               | Upper bound on the degree of a node                           | integer  |                  | 12       | Must be no less than D                  |
+| gossipsub.Dlazy               | Number of peers to gossip to                                  | integer  |                  | 6        | Must be positive                        |
+| gossipsub.history\_length     | Number of heartbeat intervals the messages are cached for     | integer  |                  | 5        | Must be positive                        |
+| gossipsub.history\_gossip     | Number of heartbeat intervals for which the gossip is emitted | integer  |                  | 3        | Must be positive                        |
 
 ## Example Configuration
+
+### FloodSub
 
 ```toml
 run_duration = "1h"
@@ -55,3 +67,20 @@ total_peers = 1024
 seen_ttl = "5m"
 block_interval = "15s"
 ```
+
+### GossipSub
+
+```toml
+run_duration = "1h"
+total_peers = 1024
+seen_ttl = "5m"
+block_interval = "15s"
+
+[gossipsub]
+heartbeat_interval = "1m"
+Dhigh = 8
+```
+
+## Arch
+
+![arch](assets/p2psim.drawio.png)

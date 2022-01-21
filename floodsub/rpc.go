@@ -9,10 +9,10 @@ type RPCMsg struct {
 	msgs []pubsub.Message
 }
 
-func NewRPCMsg(blockMsg *pubsub.BlockMsg) *RPCMsg {
+func NewDataMsg(msg pubsub.Message) *RPCMsg {
 	return &RPCMsg{
-		size: blockMsg.GetSize(),
-		msgs: []pubsub.Message{blockMsg},
+		size: msg.GetSize(),
+		msgs: []pubsub.Message{msg},
 	}
 }
 

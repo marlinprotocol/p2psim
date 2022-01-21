@@ -4,4 +4,7 @@
 build
 
 # coverage file
-cover.out
+profile.cov
+
+# for macOS filesystems
+.DS_Store
