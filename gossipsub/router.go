@@ -17,7 +17,7 @@ var (
 
 var (
 	// default config params
-	HeartbeatInterval = 1 * time.Second
+	HeartbeatInterval = 1 * time.Minute
 	D                 = 6
 	Dlow              = 4
 	Dhigh             = 12
@@ -32,7 +32,7 @@ type Router struct {
 
 	rng exprand.Source
 
-	// initialized while initializing the pubsub node
+	// assigned while initializing the pubsub node
 	node *pubsub.Node
 
 	// set of peers in the the mesh

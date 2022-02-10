@@ -49,7 +49,7 @@ var (
 
 	devFlag = &cli.BoolFlag{
 		Name:  "dev",
-		Usage: "Log events in json format!",
+		Usage: "Run logger in development mode",
 	}
 )
 
@@ -84,7 +84,7 @@ func p2psim(ctx *cli.Context) error {
 		return err
 	}
 
-	// Initialize the global logger
+	// Initialize logger
 	var loggerCfg zap.Config
 	if ctx.Bool(devFlag.Name) {
 		loggerCfg = zap.NewDevelopmentConfig()

@@ -49,7 +49,7 @@ Supported config formats: TOML
 | total\_peers                  | Total number of nodes simulated in the network                | integer  | 1024             | Required | Must be at least 2                      |
 | seen\_ttl                     | Duration for which the pubsub framework retains past messages | duration | "5m"<br>(5 mins) | "2m"     | Must be positive                        |
 | block\_interval               | Expected time to generate the next block                      | duration | "15s"            | Required | Must be positive                        |
-| gossipsub.heartbeat\_interval | Interval between consecutive gossips                          | duration | "1m"             | "1s"     | Must be positive                        |
+| gossipsub.heartbeat\_interval | Interval between consecutive gossips                          | duration | "2m"             | "1m"     | Must be positive                        |
 | gossipsub.D                   | Desired degree for the mesh                                   | integer  |                  | 6        | Must be positive                        |
 | gossipsub.Dlow                | Lower bound for the degree of a node                          | integer  |                  | 4        | Must be positive and<br>not more than D |
 | gossipsub.Dhigh               | Upper bound on the degree of a node                           | integer  |                  | 12       | Must be no less than D                  |
@@ -77,7 +77,7 @@ seen_ttl = "5m"
 block_interval = "15s"
 
 [gossipsub]
-heartbeat_interval = "1m"
+heartbeat_interval = "2m"
 Dhigh = 8
 ```
 

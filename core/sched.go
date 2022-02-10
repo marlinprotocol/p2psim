@@ -4,33 +4,59 @@ import (
 	"container/heap"
 	"errors"
 	"time"
+
+	"github.com/emirpasic/gods/maps/hashmap"
+	rbt "github.com/emirpasic/gods/trees/redblacktree"
+	"github.com/emirpasic/gods/utils"
 )
 
-// The current simulation application is implemented as a single-threaded dispatch of events
+// Intro
+// -----
+//
+// The current simulation application is implemented as a single-threaded dispatch of events.
+// See `discrete event simulator` for more information.
+// The app uses the below simulator to schedule these necessary events to be executed in the chronological order.
 // The scheduler schedules these events by running for a total of the specified duration
-// Currently the scheduler only supports scheduling events after a specific time duration which is sufficent for
-//   our current purposes
-// The events are triggerred in the chronological order assuming that the events are being scheduled into the future
 //
 // Usecases
+// --------
+//
 // - simulate network latency by scheduling a message receive after the latency duration has expired
 // - simulate heartbeats by firing a beat event after the heartbeat interval
 // - simulate block generation by scheduling generation events
+// - cancel timers (message received within time via an eager push)
 //
-// TODO: Support cancelling schedules
+// Implementation
+// --------------
+//
+// Scheduler uses a red-black tree to store events using the event's schedule time as the sorting key
+// This allows O(logn) event insert and popping the earliest event(s)
+// To remove an event by id, the impl. uses a separate map data structure that maps the id to event time
+//   removal by id is used for cancelling futures
 
 var (
 	NegSimDurErr = errors.New("Simulation duration cannot be negative!")
 )
 
 type Scheduler struct {
-	taskQ        TaskQueue
-	endTime      time.Time
-	CurTime      time.Time // useful for interval calculations (do not use for absolute time)
-	NumTriggered int64     // doesn't include incomplete events
-}
+	// taskQ stores scheduled events and orders them in the chronologically
+	// taskIDs maps event IDs to trigger times to allow easy cancellations
+	// multiple events may share the same trigger time
+	// => taskQ maps trigger times to slices of tasks
+	taskQ   *rbt.Tree
+	taskIDs *hashmap.Map
 
-type TaskQueue []*Task
+	// endTime is constant across the whole run and stops the simulator when CurTime crosses endTime
+	// endTime is not inclusive
+	// CurTime is set to the time at which the current event is being dispatched
+	//   the event observes the current time as the dispatch time
+	// CurTime should only be used for interval calculations (and not for its absolute value)
+	endTime time.Time
+	CurTime time.Time
+
+	// The total number of events triggered. Doesn't include incomplete events
+	NumTriggered int64
+}
 
 type Task struct {
 	triggerTime time.Time
@@ -49,15 +75,22 @@ func NewScheduler(dur time.Duration) (*Scheduler, error) {
 	epoch := time.Time{}
 	endTime := epoch.Add(dur)
 	sched := &Scheduler{
-		taskQ:        TaskQueue{},
-		CurTime:      epoch,
+		taskQ:        rbt.NewWith(utils.TimeComparator),
+		taskIDs:      hasmap.New(),
 		endTime:      endTime,
+		CurTime:      epoch,
 		NumTriggered: 0,
 	}
 	return sched, nil
 }
 
 func (sched *Scheduler) Run() {
+	// loop until no more tasks remain
+	// new tasks are added via the schedule function
+	for !sched.taskQ.Empty() {
+		tasks := sched.taskQ.Left().([])
+	}
+
 	// loop until no more tasks remain
 	// new tasks are added via the schedule function
 	for len(sched.taskQ) > 0 {
